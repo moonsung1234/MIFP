@@ -68,20 +68,6 @@ def _split_packet(middle_packet) :
 
         return packet_list
 
-
-def connect(host, port) :
-    global server, client
-    
-    server = ServerSocket(host, port, DEFAULT_RECEIVE_SIZE)
-    # client = ClientSocket(host, port, DEFAULT_RECEIVE_SIZE)
-    
-    server.listen() 
-
-    while True :
-        server.connect()
-
-        time.sleep(DEFAULT_DELAY) 
-
 def handshake(state) :
     handshake_packet = HandshakePacket()
     handshake_packet.set_header(
@@ -89,11 +75,11 @@ def handshake(state) :
         state
     )
 
-    if server :
-        server.client_socket.send(pickle.dumps(handshake_packet))
+    if state == CONNECT_TO_SEND :
+        server.send(pickle.dumps(handshake_packet))
 
-    if client :
-        client.socket.send(pickle.dumps(handshake_packet))
+    if state == CONNECT_TO_RECEIVE :
+        client.send(pickle.dumps(handshake_packet))
 
     return handshake_packet
 
@@ -102,7 +88,7 @@ def send(file_name) :
     file_info = fm.get_info(file_name)
 
     middle_packet.set_header(
-        START_OF_FILE, # no meaning
+        RECEIVE_NUMBER,
         file_info["file_extension"],
         file_info["file_size"],
         file_info["file_name"]
@@ -110,11 +96,72 @@ def send(file_name) :
 
     packet_list = _split_packet(middle_packet)
 
+    middle_packet.set_data(str(len(packet_list)).encode())
+    
+    if server :
+        server.send(pickle.dumps(middle_packet))
+
+    if client :
+        client.send(pickle.dumps(middle_packet))
+
+    middle_packet.set_data(file_info["file_data"])
+
     for packet in packet_list :
         if server :
-            server.client_socket.send(pickle.dumps([packet]))
+            server.send(pickle.dumps([packet]))
 
         if client :
-            client.socket.send(pickle.dumps(packet))
+            client.send(pickle.dumps(packet))
 
+    return packet_list
+
+def receive() :
+    if server :
+        return pickle.loads(server.receive())
+
+    if client :
+        return pickle.loads(client.recevie())
+
+def connect_server(host, port) :
+    global server
+    
+    server = ServerSocket(host, port, DEFAULT_RECEIVE_SIZE)    
+    server.listen() 
+
+    while True :
+        server.connect()
+
+        handshake(CONNECT_TO_SEND)
+
+        handshake_packet = receive()
+
+        print(handshake_packet.sender_ip)
+
+        send("")
+
+        time.sleep(DEFAULT_DELAY) 
+
+def connect_client(host, port) :
+    global client
+
+    client = ClientSocket(host, port, DEFAULT_RECEIVE_SIZE)
+    client.connect()
+
+    handshake_packet = receive()
+
+    print(handshake_packet.sender_ip)
+
+    handshake(CONNECT_TO_RECEIVE)
+
+    receive_number_packet = receive()
+    receive_number = int(receive_number_packet.data.decode())
+
+    for i in range(receive_number) :
+        middle_packet = receive()
+
+        fm.append_data(
+            middle_packet.file_name + middle_packet.file_extension,
+            middle_packet.data
+        )
+        
 

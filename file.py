@@ -2,7 +2,6 @@
 from PIL import Image
 import numpy as np
 import json
-import os
 
 class FileManager :
     def __init__(self) :
@@ -44,20 +43,34 @@ class FileManager :
         file_info = file_name.split(".")
 
         if file_info[1] in self.img_extensions :
-            img = Image.fromarray(data)
+            img = Image.fromarray(json.loads(data))
             img.save(file_name)
 
         else :
             file = open(file_name, "w", encoding="utf-8")
             file.write(data)
     
+    def append_data(self, file_name, data) :
+        if "." not in file_name :
+            return None
+
+        file_info = file_name.split(".")
+
+        if file_info[1] in self.img_extensions :
+            img = Image.fromarray(json.loads(data))
+            img.save(file_name)
+
+        else :
+            file = open(file_name, "a", encoding="utf-8")
+            file.write(data)
+
     def get_info(self, file_name) :
         file_info = file_name.split(".")
         file_data = self.get_data(file_name)
 
         return {
             "file_extension" : file_info[1],
-            "file_size" : os.path.getsize(file_name),
+            "file_size" : len(file_data.encode()),
             "file_name" : file_info[0],
             "file_data" : file_data
         }

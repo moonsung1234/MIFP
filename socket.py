@@ -19,7 +19,7 @@ class ServerSocket :
     def receive(self) :
         return self.client_socket.recv(self.receive_size)
 
-    def send(self, data, socket) :
+    def send(self, data) :
         return self.client_socket.send(data)
 
 class ClientSocket(ServerSocket) :
