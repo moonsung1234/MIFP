@@ -22,6 +22,9 @@ class ServerSocket :
     def send(self, data) :
         return self.client_socket.send(data)
 
+    def close(self) :
+        self.client_socket.close()
+
 class ClientSocket(ServerSocket) :
     def connect(self) :
         self.socket.connect((self.host, self.port))
@@ -31,3 +34,6 @@ class ClientSocket(ServerSocket) :
 
     def send(self, data) :
         return self.socket.send(data)
+
+    def close(self) :
+        self.socket.close()

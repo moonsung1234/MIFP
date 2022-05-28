@@ -5,9 +5,6 @@ from .file import FileManager
 import requests
 import pickle
 import time
-import math
-import sys
-import os
 
 DEFAULT_RECEIVE_SIZE = 100
 DEFAULT_DELAY = 0.2
@@ -15,6 +12,11 @@ DEFAULT_DELAY = 0.2
 server = None
 client = None
 fm = FileManager()
+
+file_to_send = None
+file_to_receive = None
+
+is_server_run = True
 
 def _split_data(data, size) :
     temp_data = ""
@@ -68,7 +70,7 @@ def _split_packet(middle_packet) :
 
         return packet_list
 
-def handshake(state) :
+def _handshake(state) :
     handshake_packet = HandshakePacket()
     handshake_packet.set_header(
         requests.get("http://ip.jsontest.com").json()["ip"],
@@ -83,7 +85,7 @@ def handshake(state) :
 
     return handshake_packet
 
-def send(file_name) :
+def _send(file_name) :
     middle_packet = MiddlePacket()
     file_info = fm.get_info(file_name)
 
@@ -93,6 +95,7 @@ def send(file_name) :
         file_info["file_size"],
         file_info["file_name"]
     )
+    middle_packet.set_data(file_info["file_data"])
 
     packet_list = _split_packet(middle_packet)
 
@@ -104,8 +107,6 @@ def send(file_name) :
     if client :
         client.send(pickle.dumps(middle_packet))
 
-    middle_packet.set_data(file_info["file_data"])
-
     for packet in packet_list :
         if server :
             server.send(pickle.dumps([packet]))
@@ -115,12 +116,22 @@ def send(file_name) :
 
     return packet_list
 
-def receive() :
+def send(file_name) :
+    global file_to_send
+
+    file_to_send = file_name
+
+def _receive() :
     if server :
         return pickle.loads(server.receive())
 
     if client :
         return pickle.loads(client.recevie())
+
+def receive(file_name) :
+    global file_to_receive
+
+    file_to_receive = file_name
 
 def connect_server(host, port) :
     global server
@@ -128,16 +139,16 @@ def connect_server(host, port) :
     server = ServerSocket(host, port, DEFAULT_RECEIVE_SIZE)    
     server.listen() 
 
-    while True :
+    while is_server_run :
         server.connect()
 
-        handshake(CONNECT_TO_SEND)
+        _handshake(CONNECT_TO_SEND)
 
-        handshake_packet = receive()
+        handshake_packet = _receive()
 
         print(handshake_packet.sender_ip)
 
-        send("")
+        _send(file_to_send)
 
         time.sleep(DEFAULT_DELAY) 
 
@@ -147,21 +158,30 @@ def connect_client(host, port) :
     client = ClientSocket(host, port, DEFAULT_RECEIVE_SIZE)
     client.connect()
 
-    handshake_packet = receive()
+    handshake_packet = _receive()
 
     print(handshake_packet.sender_ip)
 
-    handshake(CONNECT_TO_RECEIVE)
+    _handshake(CONNECT_TO_RECEIVE)
 
-    receive_number_packet = receive()
+    receive_number_packet = _receive()
     receive_number = int(receive_number_packet.data.decode())
 
     for i in range(receive_number) :
-        middle_packet = receive()
+        middle_packet = _receive()
 
         fm.append_data(
             middle_packet.file_name + middle_packet.file_extension,
             middle_packet.data
         )
         
+def close() :
+    global server, client, is_server_run
 
+    if server :
+        server.close()
+
+        is_server_run = False
+
+    if client :
+        client.close()
