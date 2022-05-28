@@ -1,0 +1,29 @@
+
+
+<Moonsung International File Protocal>
+
+
+1. Protocal From
+
+(Handshake Protocal)
+
+    [Header]
+    - sender ip
+    - access port
+
+(Middle Protocal)
+
+    [Header]
+    - sender ip
+    - file flag
+    - file size
+    - file extension
+    - file name
+
+    [Body]
+    - file data (pieces)
+
+    etc
+
+
+2. Sharing
