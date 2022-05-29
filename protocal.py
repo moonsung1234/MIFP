@@ -1,13 +1,13 @@
 
-from .packet import *
-from .socket import *
-from .file import FileManager
+from packet import *
+from soc import *
+from file import FileManager
 import requests
 import pickle
 import time
 
-DEFAULT_RECEIVE_SIZE = 100
-DEFAULT_DELAY = 0.2
+DEFAULT_RECEIVE_SIZE = 100000
+DEFAULT_SEND_DELAY = 0.1
 
 server = None
 client = None
@@ -15,8 +15,6 @@ fm = FileManager()
 
 file_to_send = None
 file_to_receive = None
-
-is_server_run = True
 
 def _split_data(data, size) :
     temp_data = ""
@@ -99,22 +97,44 @@ def _send(file_name) :
 
     packet_list = _split_packet(middle_packet)
 
-    middle_packet.set_data(str(len(packet_list)).encode())
-    
+    middle_packet.set_data(str(len(packet_list) if packet_list else 1).encode())
+
     if server :
         server.send(pickle.dumps(middle_packet))
 
     if client :
         client.send(pickle.dumps(middle_packet))
 
-    for packet in packet_list :
+    if packet_list :
+        for packet in packet_list :
+            print(len(pickle.dumps(packet)))
+
+            if server :
+                server.send(pickle.dumps(packet))
+
+            if client :
+                client.send(pickle.dumps(packet))
+
+            time.sleep(DEFAULT_SEND_DELAY)
+
+        return packet_list
+
+    else :
+        middle_packet.set_header(
+            END_OF_FILE,
+            file_info["file_extension"],
+            file_info["file_size"],
+            file_info["file_name"]
+        )
+        middle_packet.set_data(file_info["file_data"])
+
         if server :
-            server.send(pickle.dumps([packet]))
+            server.send(pickle.dumps(middle_packet))
 
         if client :
-            client.send(pickle.dumps(packet))
+            client.send(pickle.dumps(middle_packet))
 
-    return packet_list
+        return middle_packet
 
 def send(file_name) :
     global file_to_send
@@ -126,7 +146,7 @@ def _receive() :
         return pickle.loads(server.receive())
 
     if client :
-        return pickle.loads(client.recevie())
+        return pickle.loads(client.receive())
 
 def receive(file_name) :
     global file_to_receive
@@ -137,20 +157,16 @@ def connect_server(host, port) :
     global server
     
     server = ServerSocket(host, port, DEFAULT_RECEIVE_SIZE)    
-    server.listen() 
+    server.listen()
+    server.connect()
 
-    while is_server_run :
-        server.connect()
+    _handshake(CONNECT_TO_SEND)
 
-        _handshake(CONNECT_TO_SEND)
+    handshake_packet = _receive()
 
-        handshake_packet = _receive()
+    print(handshake_packet.sender_ip)
 
-        print(handshake_packet.sender_ip)
-
-        _send(file_to_send)
-
-        time.sleep(DEFAULT_DELAY) 
+    _send(file_to_send)
 
 def connect_client(host, port) :
     global client
@@ -167,21 +183,21 @@ def connect_client(host, port) :
     receive_number_packet = _receive()
     receive_number = int(receive_number_packet.data.decode())
 
+    print(receive_number)
+
     for i in range(receive_number) :
         middle_packet = _receive()
 
         fm.append_data(
-            middle_packet.file_name + middle_packet.file_extension,
+            middle_packet.file_name + "." + middle_packet.file_extension,
             middle_packet.data
         )
         
 def close() :
-    global server, client, is_server_run
+    global server, client
 
     if server :
         server.close()
-
-        is_server_run = False
 
     if client :
         client.close()

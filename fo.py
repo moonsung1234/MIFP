@@ -1,5 +1,5 @@
 
-from .protocal import *
+from protocal import *
 
 class FileOnline :
     def __init__(self, host, port) :
