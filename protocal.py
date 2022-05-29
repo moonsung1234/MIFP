@@ -148,7 +148,7 @@ def _receive() :
     if client :
         return pickle.loads(client.receive())
 
-def receive(file_name) :
+def receive() :
     global file_to_receive
 
     file_to_receive = file_name

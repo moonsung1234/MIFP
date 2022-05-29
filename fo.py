@@ -10,8 +10,8 @@ class FileOnline :
         send(file_name)
         connect_server(self.host, self.port)
 
-    def receive(self, file_name) :
-        receive(file_name)
+    def receive(self) :
+        # receive(file_name)
         connect_client(self.host, self.port)
 
     def close(self) :
